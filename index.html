@@ -1,1 +1,170 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Flappy Bird Stylé</title>
+    <style>
+        body { margin: 0; background: #222; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
+        canvas { background: #70c5ce; border: 4px solid #fff; display: block; border-radius: 5px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        #menu { position: absolute; color: white; text-align: center; background: rgba(0,0,0,0.8); padding: 30px; border-radius: 15px; border: 2px solid #f7d308; }
+        button { background: #f7d308; border: none; padding: 12px 25px; font-size: 22px; cursor: pointer; font-weight: bold; border-radius: 8px; color: #333; box-shadow: 0 4px #b89b00; }
+        button:active { transform: translateY(2px); box-shadow: 0 2px #b89b00; }
+        h1 { margin-top: 0; letter-spacing: 2px; }
+    </style>
+</head>
+<body>
 
+    <div id="menu">
+        <h1 id="status">FLAPPY BIRD</h1>
+        <p>Utilise <strong>ESPACE</strong> pour voler</p>
+        <button onclick="resetGame()">JOUER</button>
+    </div>
+
+    <canvas id="ctx"></canvas>
+
+<script>
+    const canvas = document.getElementById("ctx");
+    const engine = canvas.getContext("2d");
+    const menu = document.getElementById("menu");
+    const statusText = document.getElementById("status");
+
+    canvas.width = 320;
+    canvas.height = 480;
+
+    let birdY, birdV, birdA, pipes, clouds, score, active;
+
+    function resetGame() {
+        birdY = 240;
+        birdV = 0;
+        birdA = 0.25;
+        pipes = [];
+        score = 0;
+        active = true;
+        clouds = [
+            {x: 50, y: 50, s: 0.5},
+            {x: 200, y: 120, s: 0.3},
+            {x: 120, y: 350, s: 0.4}
+        ];
+        menu.style.display = "none";
+        loop();
+    }
+
+    window.onkeydown = (e) => {
+        if (e.code === "Space") {
+            if (!active && menu.style.display !== "none") resetGame();
+            else if(active) birdV = -5;
+        }
+    };
+
+    function drawBird(x, y) {
+        // Corps
+        engine.fillStyle = "#f7d308";
+        engine.beginPath();
+        engine.ellipse(x + 12, y + 10, 15, 12, 0, 0, Math.PI * 2);
+        engine.fill();
+        engine.stroke();
+
+        // Aile
+        engine.fillStyle = "white";
+        engine.beginPath();
+        engine.ellipse(x + 5, y + 12, 7, 5, 0, 0, Math.PI * 2);
+        engine.fill();
+        engine.stroke();
+
+        // Oeil
+        engine.fillStyle = "white";
+        engine.beginPath();
+        engine.arc(x + 20, y + 6, 4, 0, Math.PI * 2);
+        engine.fill();
+        engine.stroke();
+        engine.fillStyle = "black";
+        engine.beginPath();
+        engine.arc(x + 21, y + 6, 1.5, 0, Math.PI * 2);
+        engine.fill();
+
+        // Bec
+        engine.fillStyle = "#ff5722";
+        engine.beginPath();
+        engine.moveTo(x + 25, y + 8);
+        engine.lineTo(x + 32, y + 12);
+        engine.lineTo(x + 25, y + 14);
+        engine.fill();
+        engine.stroke();
+    }
+
+    function drawPipe(x, y, h, isTop) {
+        let grd = engine.createLinearGradient(x, 0, x + 50, 0);
+        grd.addColorStop(0, "#2e7d32");
+        grd.addColorStop(0.5, "#81c784");
+        grd.addColorStop(1, "#1b5e20");
+        engine.fillStyle = grd;
+
+        if (isTop) {
+            engine.fillRect(x, 0, 50, h); // Corps
+            engine.fillRect(x - 5, h - 20, 60, 20); // Chapeau
+            engine.strokeRect(x - 5, h - 20, 60, 20);
+        } else {
+            engine.fillRect(x, y, 50, 480 - y); // Corps
+            engine.fillRect(x - 5, y, 60, 20); // Chapeau
+            engine.strokeRect(x - 5, y, 60, 20);
+        }
+    }
+
+    function loop() {
+        if (!active) return;
+
+        birdV += birdA;
+        birdY += birdV;
+
+        if (pipes.length === 0 || pipes[pipes.length - 1].x < 150) {
+            pipes.push({ x: 320, y: Math.random() * 200 + 100, passed: false });
+        }
+
+        engine.clearRect(0, 0, 320, 480);
+
+        // Nuages
+        engine.fillStyle = "rgba(255, 255, 255, 0.5)";
+        clouds.forEach(c => {
+            c.x -= c.s;
+            if(c.x < -60) c.x = 340;
+            engine.beginPath();
+            engine.arc(c.x, c.y, 20, 0, Math.PI*2);
+            engine.arc(c.x+15, c.y-10, 15, 0, Math.PI*2);
+            engine.arc(c.x+30, c.y, 20, 0, Math.PI*2);
+            engine.fill();
+        });
+
+        // Tuyaux
+        pipes.forEach((p, i) => {
+            p.x -= 2;
+            drawPipe(p.x, p.y + 120, p.y, true);
+            drawPipe(p.x, p.y + 120, p.y, false);
+
+            if (p.x < 50 + 20 && p.x + 50 > 50 && (birdY < p.y || birdY + 20 > p.y + 120)) endGame();
+            if (!p.passed && p.x < 50) { score++; p.passed = true; }
+            if (p.x < -60) pipes.splice(i, 1);
+        });
+
+        if (birdY > 465 || birdY < -20) endGame();
+
+        drawBird(50, birdY);
+
+        engine.fillStyle = "white";
+        engine.strokeStyle = "black";
+        engine.font = "bold 30px Arial";
+        engine.fillText(score, 150, 50);
+        engine.strokeText(score, 150, 50);
+
+        requestAnimationFrame(loop);
+    }
+
+    function endGame() {
+        active = false;
+        menu.style.display = "block";
+        statusText.innerText = "GAME OVER";
+    }
+
+    active = false;
+</script>
+</body>
+</html>
